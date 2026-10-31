@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Know Your Boss — rate the person who rates you</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;600;700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1B2430; --bg-raise:#232C3B; --bg-raise2:#2B3547;
+    --ink:#E8E6DF; --ink-dim:#9AA5B5; --rule:#36405220;
+    --accent:#D9A441; --accent-ink:#1B2430;
+    --good:#7FB88A; --mid:#D9A441; --bad:#C76B5B;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#F3F1EC; --bg-raise:#FFFFFF; --bg-raise2:#ECEAE3;
+      --ink:#232320; --ink-dim:#6B6B63; --rule:#00000014;
+      --accent:#A5651E; --accent-ink:#FFFFFF;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#F3F1EC; --bg-raise:#FFFFFF; --bg-raise2:#ECEAE3;
+    --ink:#232320; --ink-dim:#6B6B63; --rule:#00000014;
+    --accent:#A5651E; --accent-ink:#FFFFFF;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Work Sans',system-ui,sans-serif;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.serif{font-family:'Bitter',Georgia,serif;}
+  a{color:inherit;}
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px 80px;}
+  header.top{
+    position:sticky; top:0; z-index:5;
+    padding-top:calc(16px + env(safe-area-inset-top,0px));
+    padding-bottom:14px; background:var(--bg);
+    border-bottom:1px solid var(--rule);
+  }
+  .brandrow{display:flex;align-items:baseline;justify-content:space-between;gap:12px;}
+  .brand{font-size:1.4rem;font-weight:700;letter-spacing:-0.01em;}
+  .brand span{color:var(--accent);}
+  .themebtn{background:none;border:1px solid var(--rule);color:var(--ink-dim);border-radius:6px;padding:5px 9px;font-size:0.75rem;cursor:pointer;font-family:inherit;}
+  .tag{color:var(--ink-dim);font-size:0.95rem;margin-top:4px;max-width:46ch;line-height:1.4;}
+  .searchrow{display:flex;gap:8px;margin-top:16px;}
+  input[type=text],input[type=number],select,textarea{
+    font-family:'Work Sans',sans-serif; background:var(--bg-raise); color:var(--ink);
+    border:1px solid var(--rule); border-radius:7px; padding:10px 12px; font-size:0.95rem;
+  }
+  input[type=text]{flex:1; min-width:0;}
+  button.primary{
+    background:var(--accent); color:var(--accent-ink); border:none; border-radius:7px;
+    padding:10px 16px; font-weight:600; font-size:0.9rem; cursor:pointer; font-family:inherit;
+    white-space:nowrap;
+  }
+  button.primary:hover{filter:brightness(1.07);}
+  button.ghost{
+    background:none; border:1px solid var(--rule); color:var(--ink); border-radius:7px;
+    padding:9px 14px; font-size:0.9rem; cursor:pointer; font-family:inherit;
+  }
+  section.intro{padding:22px 0 6px;}
+  .score-key{display:flex;gap:16px;margin:14px 0 2px;flex-wrap:wrap;}
+  .score-key div{font-size:0.78rem;color:var(--ink-dim);display:flex;align-items:center;gap:6px;}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+
+  .list{margin-top:18px;display:flex;flex-direction:column;gap:2px;}
+  .entry{
+    display:flex; align-items:center; gap:14px; padding:16px 4px;
+    border-top:1px solid var(--rule); cursor:pointer;
+  }
+  .entry:hover .name{color:var(--accent);}
+  .score{
+    width:46px;height:46px;border-radius:50%;flex:none;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Bitter',serif;font-weight:700;font-size:1.05rem;
+    border:2px solid; 
+  }
+  .entry-main{flex:1;min-width:0;}
+  .name{font-weight:600;font-size:1.02rem;}
+  .meta{color:var(--ink-dim);font-size:0.82rem;margin-top:2px;}
+  .chevron{color:var(--ink-dim);font-size:1.1rem;}
+
+  .empty{padding:40px 4px;color:var(--ink-dim);}
+  .empty b{color:var(--ink);}
+
+  /* detail overlay */
+  .overlay{
+    position:fixed; inset:0; background:#00000066; z-index:20;
+    display:none; align-items:flex-start; justify-content:center;
+    overflow-y:auto; padding:40px 16px calc(40px + env(safe-area-inset-bottom,0px));
+  }
+  .overlay.show{display:flex;}
+  .panel{
+    background:var(--bg); max-width:620px; width:100%; border-radius:12px;
+    border:1px solid var(--rule); padding:26px 24px 30px; position:relative;
+  }
+  .close{
+    position:absolute; top:16px; right:16px; background:none; border:none;
+    color:var(--ink-dim); font-size:1.3rem; cursor:pointer; line-height:1;
+  }
+  .panel h2{margin:0 0 2px; font-size:1.5rem;}
+  .panel .meta{margin-bottom:14px;}
+  .bigscore-row{display:flex;align-items:center;gap:16px;margin:14px 0 18px;}
+  .bigscore{
+    width:66px;height:66px;border-radius:50%;border:3px solid;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Bitter',serif;font-weight:700;font-size:1.5rem;flex:none;
+  }
+  .barlist{display:flex;flex-direction:column;gap:7px;flex:1;}
+  .barrow{display:flex;align-items:center;gap:8px;font-size:0.78rem;color:var(--ink-dim);}
+  .barrow .label{width:118px;flex:none;}
+  .bar{flex:1;height:6px;background:var(--bg-raise2);border-radius:3px;overflow:hidden;}
+  .bar i{display:block;height:100%;border-radius:3px;}
+
+  .reviews{margin-top:20px;display:flex;flex-direction:column;gap:14px;}
+  .review{border-top:1px solid var(--rule);padding-top:14px;}
+  .review .rhead{display:flex;justify-content:space-between;align-items:baseline;font-size:0.78rem;color:var(--ink-dim);margin-bottom:6px;}
+  .review .rtext{font-size:0.92rem;line-height:1.5;}
+  .review .rscore{font-weight:700;}
+
+  .addbtn-row{margin-top:20px;}
+  form.review-form{margin-top:18px; display:none; flex-direction:column; gap:12px; border-top:1px solid var(--rule); padding-top:18px;}
+  form.review-form.show{display:flex;}
+  .sliderow{display:flex;flex-direction:column;gap:4px;}
+  .sliderow label{font-size:0.82rem;color:var(--ink-dim);display:flex;justify-content:space-between;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  textarea{resize:vertical;min-height:80px;font-size:0.92rem;line-height:1.4;}
+  .form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:4px;}
+
+  .newboss-card{
+    border:1px dashed var(--rule); border-radius:10px; padding:18px; margin-top:22px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .newboss-card h3{margin:0;font-size:1rem;}
+  .twofield{display:flex;gap:8px;}
+  .twofield input{flex:1;min-width:0;}
+  @media (max-width:480px){ .twofield{flex-direction:column;} }
+  .note{font-size:0.78rem;color:var(--ink-dim);margin-top:30px;line-height:1.5;border-top:1px solid var(--rule);padding-top:16px;}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap" style="padding:0;">
+    <div class="brandrow">
+      <div class="brand">Know<span>Your</span>Boss</div>
+      <button class="themebtn" id="themeBtn">Dark</button>
+    </div>
+    <div class="tag">Anonymous reviews of managers, written by the people who report to them.</div>
+    <div class="searchrow">
+      <input type="text" id="search" placeholder="Search a manager or company…">
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="intro">
+    <div class="score-key">
+      <div><span class="dot" style="background:var(--good)"></span>7–10 · would recommend</div>
+      <div><span class="dot" style="background:var(--mid)"></span>4–6.9 · mixed</div>
+      <div><span class="dot" style="background:var(--bad)"></span>below 4 · run</div>
+    </div>
+  </section>
+
+  <div class="list" id="list"></div>
+
+  <div class="newboss-card">
+    <h3>Don't see your manager?</h3>
+    <div class="twofield">
+      <input type="text" id="nb-name" placeholder="Manager's name or title">
+      <input type="text" id="nb-company" placeholder="Company">
+    </div>
+    <div><button class="primary" id="nb-add">Add them to the list</button></div>
+  </div>
+
+ 
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="panel" id="panel"></div>
+</div>
+
+<script>
+const CATS = [
+  {key:'comm', label:'Communication'},
+  {key:'fair', label:'Fairness'},
+  {key:'growth', label:'Supports growth'},
+  {key:'balance', label:'Respects time off'}
+];
+
+const SEED = [
+  {id:'s1', name:'Dana K.', title:'Engineering Manager', company:'Loom & Co.',
+    reviews:[
+      {scores:{comm:8,fair:7,growth:9,balance:6}, text:"Genuinely fights for the team in planning meetings and gives credit publicly. Slow to respond to Slack on weekends, which is fine, but she expects the same discipline from everyone, which isn't always realistic.", when:'3 months ago'},
+      {scores:{comm:7,fair:8,growth:8,balance:5}, text:"Clear about expectations from day one. Promotion conversations are honest even when the answer is 'not yet.' Meetings run long.", when:'7 months ago'}
+    ]},
+  {id:'s2', name:'R. Osei', title:'Store Manager', company:'Fieldstone Market',
+    reviews:[
+      {scores:{comm:4,fair:3,growth:3,balance:2}, text:"Schedules get posted two days before the week starts and change without notice. Asked for feedback once in a team meeting and then brought up my specific answer to the whole group.", when:'1 month ago'},
+      {scores:{comm:5,fair:4,growth:2,balance:3}, text:"Not malicious, just stretched too thin across two locations. Good intentions, no bandwidth to follow through.", when:'5 months ago'}
+    ]},
+  {id:'s3', name:'Priya Shah', title:'Creative Director', company:'Nettle Studio',
+    reviews:[
+      {scores:{comm:9,fair:9,growth:7,balance:8}, text:"Will tell you directly when work isn't landing, same day, not in a review six months later. Protects the team from scope creep better than anyone I've worked for.", when:'2 months ago'}
+    ]},
+  {id:'s4', name:'Marcus Bell', title:'Regional Sales Director', company:'Verity Health Supply',
+    reviews:[
+      {scores:{comm:3,fair:2,growth:4,balance:2}, text:"Takes credit for wins in front of his boss, distributes blame for misses to whoever's in the room. Numbers-only conversations, never asks how you're doing.", when:'4 months ago'},
+      {scores:{comm:4,fair:3,growth:5,balance:3}, text:"If you hit quota he leaves you alone, which some people prefer. No real mentorship happening.", when:'8 months ago'}
+    ]},
+  {id:'s5', name:'Agnes Liu', title:'Head Chef', company:'Birchwood Kitchen',
+    reviews:[
+      {scores:{comm:6,fair:7,growth:6,balance:4}, text:"Kitchen is loud and fast but she never raises her voice, which sets the tone for everyone else. Overtime during events is expected, not optional.", when:'6 weeks ago'}
+    ]},
+  {id:'s6', name:'Tom Reyes', title:'Warehouse Supervisor', company:'Cardinal Logistics',
+    reviews:[
+      {scores:{comm:7,fair:8,growth:5,balance:6}, text:"Covers shifts himself when someone's short-staffed instead of just complaining about it. Not big on explaining the 'why' behind new procedures.", when:'3 weeks ago'}
+    ]}
+];
+
+const LS_KEY = 'writeup-user-data-v1';
+
+function loadUserData(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : {extraReviews:{}, newBosses:[]};
+  }catch(e){ return {extraReviews:{}, newBosses:[]}; }
+}
+function saveUserData(d){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(d)); }catch(e){}
+}
+
+let userData = loadUserData();
+
+function allBosses(){
+  return [...SEED, ...userData.newBosses].map(b=>{
+    const extra = userData.extraReviews[b.id] || [];
+    return {...b, reviews:[...b.reviews, ...extra]};
+  });
+}
+
+function avg(reviews, key){
+  if(!reviews.length) return null;
+  const nums = reviews.map(r=>key ? r.scores[key] : CATS.reduce((s,c)=>s+r.scores[c.key],0)/CATS.length);
+  return nums.reduce((a,b)=>a+b,0)/nums.length;
+}
+
+function scoreColor(v){
+  if(v>=7) return 'var(--good)';
+  if(v>=4) return 'var(--mid)';
+  return 'var(--bad)';
+}
+
+function initials(name){
+  return name.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
+}
+
+function render(){
+  const q = (document.getElementById('search').value || '').toLowerCase();
+  const list = document.getElementById('list');
+  const bosses = allBosses().filter(b =>
+    !q || b.name.toLowerCase().includes(q) || b.company.toLowerCase().includes(q) || (b.title||'').toLowerCase().includes(q)
+  );
+  if(!bosses.length){
+    list.innerHTML = `<div class="empty">No matches for <b>${escapeHtml(q)}</b>. Try a different name or company, or add them below.</div>`;
+    return;
+  }
+  list.innerHTML = bosses.map(b=>{
+    const overall = avg(b.reviews);
+    const scoreTxt = overall===null ? '—' : overall.toFixed(1);
+    const col = overall===null ? 'var(--ink-dim)' : scoreColor(overall);
+    return `<div class="entry" data-id="${b.id}">
+      <div class="score" style="color:${col};border-color:${col}">${scoreTxt}</div>
+      <div class="entry-main">
+        <div class="name">${escapeHtml(b.name)}</div>
+        <div class="meta">${escapeHtml(b.title||'')}${b.title?' · ':''}${escapeHtml(b.company)} · ${b.reviews.length} review${b.reviews.length===1?'':'s'}</div>
+      </div>
+      <div class="chevron">›</div>
+    </div>`;
+  }).join('');
+  [...list.querySelectorAll('.entry')].forEach(el=>{
+    el.addEventListener('click', ()=>openPanel(el.dataset.id));
+  });
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function openPanel(id){
+  const b = allBosses().find(x=>x.id===id);
+  if(!b) return;
+  const overall = avg(b.reviews);
+  const overallTxt = overall===null ? '—' : overall.toFixed(1);
+  const overallCol = overall===null ? 'var(--ink-dim)' : scoreColor(overall);
+
+  const bars = CATS.map(c=>{
+    const v = avg(b.reviews, c.key);
+    const pct = v===null ? 0 : (v/10*100);
+    const col = v===null ? 'var(--ink-dim)' : scoreColor(v);
+    return `<div class="barrow">
+      <div class="label">${c.label}</div>
+      <div class="bar"><i style="width:${pct}%;background:${col}"></i></div>
+      <div style="width:24px;text-align:right">${v===null?'—':v.toFixed(1)}</div>
+    </div>`;
+  }).join('');
+
+  const reviewsHtml = b.reviews.length ? b.reviews.slice().reverse().map(r=>{
+    const rov = CATS.reduce((s,c)=>s+r.scores[c.key],0)/CATS.length;
+    return `<div class="review">
+      <div class="rhead"><span>${r.when||'recently'}</span><span class="rscore" style="color:${scoreColor(rov)}">${rov.toFixed(1)}/10</span></div>
+      <div class="rtext">${escapeHtml(r.text)}</div>
+    </div>`;
+  }).join('') : '<div class="empty">No reviews yet — be the first to write one.</div>';
+
+  const panel = document.getElementById('panel');
+  panel.innerHTML = `
+    <button class="close" id="closeBtn" aria-label="Close">×</button>
+    <h2>${escapeHtml(b.name)}</h2>
+    <div class="meta">${escapeHtml(b.title||'')}${b.title?' · ':''}${escapeHtml(b.company)}</div>
+    <div class="bigscore-row">
+      <div class="bigscore" style="color:${overallCol};border-color:${overallCol}">${overallTxt}</div>
+      <div class="barlist">${bars}</div>
+    </div>
+    <div class="addbtn-row"><button class="ghost" id="toggleForm">Write a review</button></div>
+    <form class="review-form" id="reviewForm">
+      ${CATS.map(c=>`
+        <div class="sliderow">
+          <label for="f-${c.key}"><span>${c.label}</span><span id="v-${c.key}">6</span></label>
+          <input type="range" min="1" max="10" value="6" id="f-${c.key}" data-key="${c.key}">
+        </div>`).join('')}
+      <textarea id="f-text" placeholder="What should someone considering working for this person know? No names of coworkers or other identifying details, please."></textarea>
+      <div class="form-actions">
+        <button type="button" class="ghost" id="cancelForm">Cancel</button>
+        <button type="submit" class="primary">Post review</button>
+      </div>
+    </form>
+    <div class="reviews">${reviewsHtml}</div>
+  `;
+
+  document.getElementById('closeBtn').onclick = closePanel;
+  document.getElementById('toggleForm').onclick = ()=>{
+    document.getElementById('reviewForm').classList.add('show');
+    document.getElementById('toggleForm').style.display='none';
+  };
+  document.getElementById('cancelForm').onclick = ()=>{
+    document.getElementById('reviewForm').classList.remove('show');
+    document.getElementById('toggleForm').style.display='inline-block';
+  };
+  CATS.forEach(c=>{
+    const input = document.getElementById(`f-${c.key}`);
+    input.addEventListener('input', ()=>{ document.getElementById(`v-${c.key}`).textContent = input.value; });
+  });
+  document.getElementById('reviewForm').addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const scores = {};
+    CATS.forEach(c=>{ scores[c.key] = Number(document.getElementById(`f-${c.key}`).value); });
+    const text = document.getElementById('f-text').value.trim();
+    if(!text){ return; }
+    if(!userData.extraReviews[id]) userData.extraReviews[id] = [];
+    userData.extraReviews[id].push({scores, text, when:'just now'});
+    saveUserData(userData);
+    render();
+    openPanel(id);
+  });
+
+  document.getElementById('overlay').classList.add('show');
+}
+
+function closePanel(){
+  document.getElementById('overlay').classList.remove('show');
+}
+
+document.getElementById('overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'overlay') closePanel();
+});
+document.getElementById('search').addEventListener('input', render);
+
+document.getElementById('nb-add').addEventListener('click', ()=>{
+  const name = document.getElementById('nb-name').value.trim();
+  const company = document.getElementById('nb-company').value.trim();
+  if(!name || !company) return;
+  const id = 'u' + Date.now();
+  userData.newBosses.push({id, name, title:'', company, reviews:[]});
+  saveUserData(userData);
+  document.getElementById('nb-name').value='';
+  document.getElementById('nb-company').value='';
+  render();
+  openPanel(id);
+});
+
+// theme toggle
+const themeBtn = document.getElementById('themeBtn');
+function applyTheme(t){
+  if(t){ document.documentElement.setAttribute('data-theme', t); }
+  else { document.documentElement.removeAttribute('data-theme'); }
+  themeBtn.textContent = (t==='light') ? 'Light' : 'Dark';
+}
+let currentTheme = null;
+themeBtn.addEventListener('click', ()=>{
+  currentTheme = currentTheme==='light' ? 'dark' : 'light';
+  applyTheme(currentTheme);
+});
+applyTheme(null);
+
+render();
+</script>
+</body>
+</html>
