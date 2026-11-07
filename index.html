@@ -51,7 +51,7 @@
   .themebtn{background:none;border:1px solid var(--rule);color:var(--ink-dim);border-radius:6px;padding:5px 9px;font-size:0.75rem;cursor:pointer;font-family:inherit;}
   .tag{color:var(--ink-dim);font-size:0.95rem;margin-top:4px;max-width:46ch;line-height:1.4;}
   .searchrow{display:flex;gap:8px;margin-top:16px;}
-  input[type=text],input[type=number],select,textarea{
+  input[type=text],input[type=email],input[type=password],input[type=number],select,textarea{
     font-family:'Work Sans',sans-serif; background:var(--bg-raise); color:var(--ink);
     border:1px solid var(--rule); border-radius:7px; padding:10px 12px; font-size:0.95rem;
   }
@@ -151,7 +151,7 @@
   <div class="wrap" style="padding:0;">
     <div class="brandrow">
       <div class="brand">Know<span>Your</span>Boss</div>
-      <button class="themebtn" id="themeBtn">Dark</button>
+      <button class="themebtn" id="authBtn">Log in</button>
     </div>
     <div class="tag">Anonymous reviews of managers, written by the people who report to them.</div>
     <div class="searchrow">
@@ -183,11 +183,24 @@
  
 </div>
 
-<div class="overlay" id="overlay">
-  <div class="panel" id="panel"></div>
+<div class="overlay" id="authOverlay">
+  <div class="panel" style="max-width:380px;">
+    <button class="close" id="authClose" aria-label="Close">×</button>
+    <h2 id="authTitle">Log in</h2>
+    <form id="authForm" style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">
+      <input type="email" id="auth-email" placeholder="Email" required>
+      <input type="password" id="auth-password" placeholder="Password (8+ characters)" required>
+      <div id="authError" style="color:var(--bad);font-size:0.8rem;display:none;"></div>
+      <button type="submit" class="primary">Log in</button>
+      <button type="button" class="ghost" id="authSwitch">Need an account? Register</button>
+    </form>
+  </div>
 </div>
 
 <script>
+
+  const API_BASE = 'http://localhost:3000/api';
+  let authToken = localStorage.getItem('writeup-auth-token') || null;
 const CATS = [
   {key:'comm', label:'Communication'},
   {key:'fair', label:'Fairness'},
@@ -382,6 +395,62 @@ document.getElementById('overlay').addEventListener('click', (e)=>{
   if(e.target.id === 'overlay') closePanel();
 });
 document.getElementById('search').addEventListener('input', render);
+
+let authMode = 'login';
+const authBtn = document.getElementById('authBtn');
+function updateAuthBtn(){
+  authBtn.textContent = authToken ? 'Log out' : 'Log in';
+}
+authBtn.addEventListener('click', ()=>{
+  if(authToken){
+    authToken = null;
+    localStorage.removeItem('writeup-auth-token');
+    updateAuthBtn();
+    return;
+  }
+  document.getElementById('authOverlay').classList.add('show');
+});
+document.getElementById('authClose').addEventListener('click', ()=>{
+  document.getElementById('authOverlay').classList.remove('show');
+});
+document.getElementById('authSwitch').addEventListener('click', ()=>{
+  authMode = authMode === 'login' ? 'register' : 'login';
+  document.getElementById('authTitle').textContent = authMode === 'login' ? 'Log in' : 'Register';
+  document.querySelector('#authForm button[type=submit]').textContent = authMode === 'login' ? 'Log in' : 'Register';
+  document.getElementById('authSwitch').textContent = authMode === 'login' ? 'Need an account? Register' : 'Already have an account? Log in';
+});
+document.getElementById('authForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('authError');
+  errEl.style.display = 'none';
+  try{
+    if(authMode === 'register'){
+      const res = await fetch(`${API_BASE}/auth/register`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({email, password})
+      });
+      if(!res.ok){ const d = await res.json(); throw new Error(d.error || 'Registration failed'); }
+      authMode = 'login';
+    }
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email, password})
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || 'Login failed');
+    authToken = data.token;
+    localStorage.setItem('writeup-auth-token', authToken);
+    updateAuthBtn();
+    document.getElementById('authOverlay').classList.remove('show');
+    document.getElementById('authForm').reset();
+  }catch(err){
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  }
+});
+updateAuthBtn();
 
 document.getElementById('nb-add').addEventListener('click', ()=>{
   const name = document.getElementById('nb-name').value.trim();
