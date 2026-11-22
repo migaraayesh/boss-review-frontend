@@ -62,6 +62,7 @@
     white-space:nowrap;
   }
   button.primary:hover{filter:brightness(1.07);}
+  button.primary:disabled{opacity:0.45;cursor:not-allowed;}
   button.ghost{
     background:none; border:1px solid var(--rule); color:var(--ink); border-radius:7px;
     padding:9px 14px; font-size:0.9rem; cursor:pointer; font-family:inherit;
@@ -91,7 +92,6 @@
   .empty{padding:40px 4px;color:var(--ink-dim);}
   .empty b{color:var(--ink);}
 
-  /* detail overlay */
   .overlay{
     position:fixed; inset:0; background:#00000066; z-index:20;
     display:none; align-items:flex-start; justify-content:center;
@@ -179,8 +179,10 @@
     </div>
     <div><button class="primary" id="nb-add">Add them to the list</button></div>
   </div>
+</div>
 
- 
+<div class="overlay" id="overlay">
+  <div class="panel" id="panel"></div>
 </div>
 
 <div class="overlay" id="authOverlay">
@@ -197,10 +199,25 @@
   </div>
 </div>
 
+<div class="overlay" id="termsOverlay">
+  <div class="panel" style="max-width:520px;">
+    <button class="close" id="termsClose" aria-label="Close">×</button>
+    <h2>Terms &amp; Conditions</h2>
+    <div style="font-size:0.85rem;line-height:1.55;color:var(--ink-dim);max-height:55vh;overflow-y:auto;margin-top:12px;">
+      <p><strong>User-generated content.</strong> Reviews posted here are the personal opinions of the individual users who submit them. KnowYourBoss does not verify, endorse, or guarantee the accuracy of any review.</p>
+      <p><strong>No liability.</strong> To the fullest extent permitted by law, KnowYourBoss and its operators accept no responsibility or legal liability for any claim, loss, damage, dispute, or legal issue arising from content submitted by users.</p>
+      <p><strong>Indemnification.</strong> By submitting a review, you agree to indemnify and hold harmless KnowYourBoss from any claim made by a third party arising from content you submit.</p>
+      <p><strong>No warranty.</strong> This service is provided "as is," without warranties of any kind.</p>
+      <p style="opacity:0.7">Draft text — have a lawyer review before real-world use.</p>
+    </div>
+  </div>
+</div>
+
 <script>
 
-  const API_BASE = 'http://localhost:3000/api';
+  const API_BASE = 'https://boss-review-backend.fly.dev/api';
   let authToken = localStorage.getItem('writeup-auth-token') || null;
+
 const CATS = [
   {key:'comm', label:'Communication'},
   {key:'fair', label:'Fairness'},
@@ -208,60 +225,24 @@ const CATS = [
   {key:'balance', label:'Respects time off'}
 ];
 
-const SEED = [
-  {id:'s1', name:'Dana K.', title:'Engineering Manager', company:'Loom & Co.',
-    reviews:[
-      {scores:{comm:8,fair:7,growth:9,balance:6}, text:"Genuinely fights for the team in planning meetings and gives credit publicly. Slow to respond to Slack on weekends, which is fine, but she expects the same discipline from everyone, which isn't always realistic.", when:'3 months ago'},
-      {scores:{comm:7,fair:8,growth:8,balance:5}, text:"Clear about expectations from day one. Promotion conversations are honest even when the answer is 'not yet.' Meetings run long.", when:'7 months ago'}
-    ]},
-  {id:'s2', name:'R. Osei', title:'Store Manager', company:'Fieldstone Market',
-    reviews:[
-      {scores:{comm:4,fair:3,growth:3,balance:2}, text:"Schedules get posted two days before the week starts and change without notice. Asked for feedback once in a team meeting and then brought up my specific answer to the whole group.", when:'1 month ago'},
-      {scores:{comm:5,fair:4,growth:2,balance:3}, text:"Not malicious, just stretched too thin across two locations. Good intentions, no bandwidth to follow through.", when:'5 months ago'}
-    ]},
-  {id:'s3', name:'Priya Shah', title:'Creative Director', company:'Nettle Studio',
-    reviews:[
-      {scores:{comm:9,fair:9,growth:7,balance:8}, text:"Will tell you directly when work isn't landing, same day, not in a review six months later. Protects the team from scope creep better than anyone I've worked for.", when:'2 months ago'}
-    ]},
-  {id:'s4', name:'Marcus Bell', title:'Regional Sales Director', company:'Verity Health Supply',
-    reviews:[
-      {scores:{comm:3,fair:2,growth:4,balance:2}, text:"Takes credit for wins in front of his boss, distributes blame for misses to whoever's in the room. Numbers-only conversations, never asks how you're doing.", when:'4 months ago'},
-      {scores:{comm:4,fair:3,growth:5,balance:3}, text:"If you hit quota he leaves you alone, which some people prefer. No real mentorship happening.", when:'8 months ago'}
-    ]},
-  {id:'s5', name:'Agnes Liu', title:'Head Chef', company:'Birchwood Kitchen',
-    reviews:[
-      {scores:{comm:6,fair:7,growth:6,balance:4}, text:"Kitchen is loud and fast but she never raises her voice, which sets the tone for everyone else. Overtime during events is expected, not optional.", when:'6 weeks ago'}
-    ]},
-  {id:'s6', name:'Tom Reyes', title:'Warehouse Supervisor', company:'Cardinal Logistics',
-    reviews:[
-      {scores:{comm:7,fair:8,growth:5,balance:6}, text:"Covers shifts himself when someone's short-staffed instead of just complaining about it. Not big on explaining the 'why' behind new procedures.", when:'3 weeks ago'}
-    ]}
-];
+let bosses = [];
 
-const LS_KEY = 'writeup-user-data-v1';
-
-function loadUserData(){
+async function loadBosses(q){
   try{
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? JSON.parse(raw) : {extraReviews:{}, newBosses:[]};
-  }catch(e){ return {extraReviews:{}, newBosses:[]}; }
-}
-function saveUserData(d){
-  try{ localStorage.setItem(LS_KEY, JSON.stringify(d)); }catch(e){}
-}
-
-let userData = loadUserData();
-
-function allBosses(){
-  return [...SEED, ...userData.newBosses].map(b=>{
-    const extra = userData.extraReviews[b.id] || [];
-    return {...b, reviews:[...b.reviews, ...extra]};
-  });
+    const res = await fetch(`${API_BASE}/profiles?q=${encodeURIComponent(q || '')}`);
+    bosses = await res.json();
+  }catch(err){
+    bosses = [];
+  }
+  renderList();
 }
 
 function avg(reviews, key){
   if(!reviews.length) return null;
-  const nums = reviews.map(r=>key ? r.scores[key] : CATS.reduce((s,c)=>s+r.scores[c.key],0)/CATS.length);
+  const nums = reviews.map(r => key
+    ? r[`${key}_score`]
+    : (r.comm_score + r.fair_score + r.growth_score + r.balance_score) / 4
+  );
   return nums.reduce((a,b)=>a+b,0)/nums.length;
 }
 
@@ -271,29 +252,21 @@ function scoreColor(v){
   return 'var(--bad)';
 }
 
-function initials(name){
-  return name.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
-}
-
-function render(){
-  const q = (document.getElementById('search').value || '').toLowerCase();
+function renderList(){
   const list = document.getElementById('list');
-  const bosses = allBosses().filter(b =>
-    !q || b.name.toLowerCase().includes(q) || b.company.toLowerCase().includes(q) || (b.title||'').toLowerCase().includes(q)
-  );
   if(!bosses.length){
-    list.innerHTML = `<div class="empty">No matches for <b>${escapeHtml(q)}</b>. Try a different name or company, or add them below.</div>`;
+    list.innerHTML = `<div class="empty">No matches. Try a different name or company, or add them below.</div>`;
     return;
   }
   list.innerHTML = bosses.map(b=>{
-    const overall = avg(b.reviews);
+    const overall = b.avg_score===null ? null : Number(b.avg_score);
     const scoreTxt = overall===null ? '—' : overall.toFixed(1);
     const col = overall===null ? 'var(--ink-dim)' : scoreColor(overall);
     return `<div class="entry" data-id="${b.id}">
       <div class="score" style="color:${col};border-color:${col}">${scoreTxt}</div>
       <div class="entry-main">
         <div class="name">${escapeHtml(b.name)}</div>
-        <div class="meta">${escapeHtml(b.title||'')}${b.title?' · ':''}${escapeHtml(b.company)} · ${b.reviews.length} review${b.reviews.length===1?'':'s'}</div>
+        <div class="meta">${escapeHtml(b.title||'')}${b.title?' · ':''}${escapeHtml(b.company)} · ${b.review_count} review${b.review_count=='1'?'':'s'}</div>
       </div>
       <div class="chevron">›</div>
     </div>`;
@@ -307,15 +280,17 @@ function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function openPanel(id){
-  const b = allBosses().find(x=>x.id===id);
-  if(!b) return;
-  const overall = avg(b.reviews);
+async function openPanel(id){
+  const res = await fetch(`${API_BASE}/profiles/${id}`);
+  if(!res.ok) return;
+  const { boss: b, reviews } = await res.json();
+
+  const overall = avg(reviews);
   const overallTxt = overall===null ? '—' : overall.toFixed(1);
   const overallCol = overall===null ? 'var(--ink-dim)' : scoreColor(overall);
 
   const bars = CATS.map(c=>{
-    const v = avg(b.reviews, c.key);
+    const v = avg(reviews, c.key);
     const pct = v===null ? 0 : (v/10*100);
     const col = v===null ? 'var(--ink-dim)' : scoreColor(v);
     return `<div class="barrow">
@@ -325,11 +300,12 @@ function openPanel(id){
     </div>`;
   }).join('');
 
-  const reviewsHtml = b.reviews.length ? b.reviews.slice().reverse().map(r=>{
-    const rov = CATS.reduce((s,c)=>s+r.scores[c.key],0)/CATS.length;
+  const reviewsHtml = reviews.length ? reviews.map(r=>{
+    const rov = (r.comm_score + r.fair_score + r.growth_score + r.balance_score) / 4;
+    const when = new Date(r.created_at).toLocaleDateString();
     return `<div class="review">
-      <div class="rhead"><span>${r.when||'recently'}</span><span class="rscore" style="color:${scoreColor(rov)}">${rov.toFixed(1)}/10</span></div>
-      <div class="rtext">${escapeHtml(r.text)}</div>
+      <div class="rhead"><span>${when}</span><span class="rscore" style="color:${scoreColor(rov)}">${rov.toFixed(1)}/10</span></div>
+      <div class="rtext">${escapeHtml(r.review_text)}</div>
     </div>`;
   }).join('') : '<div class="empty">No reviews yet — be the first to write one.</div>';
 
@@ -350,9 +326,13 @@ function openPanel(id){
           <input type="range" min="1" max="10" value="6" id="f-${c.key}" data-key="${c.key}">
         </div>`).join('')}
       <textarea id="f-text" placeholder="What should someone considering working for this person know? No names of coworkers or other identifying details, please."></textarea>
+      <label style="display:flex;align-items:flex-start;gap:8px;font-size:0.82rem;color:var(--ink-dim);">
+        <input type="checkbox" id="f-consent" style="margin-top:3px;">
+        <span>I agree to the <a id="openTerms" style="color:var(--accent);text-decoration:underline;cursor:pointer;">Terms &amp; Conditions</a></span>
+      </label>
       <div class="form-actions">
         <button type="button" class="ghost" id="cancelForm">Cancel</button>
-        <button type="submit" class="primary">Post review</button>
+        <button type="submit" class="primary" id="submitReviewBtn" disabled>Post review</button>
       </div>
     </form>
     <div class="reviews">${reviewsHtml}</div>
@@ -360,6 +340,10 @@ function openPanel(id){
 
   document.getElementById('closeBtn').onclick = closePanel;
   document.getElementById('toggleForm').onclick = ()=>{
+    if(!authToken){
+      document.getElementById('authOverlay').classList.add('show');
+      return;
+    }
     document.getElementById('reviewForm').classList.add('show');
     document.getElementById('toggleForm').style.display='none';
   };
@@ -371,16 +355,36 @@ function openPanel(id){
     const input = document.getElementById(`f-${c.key}`);
     input.addEventListener('input', ()=>{ document.getElementById(`v-${c.key}`).textContent = input.value; });
   });
-  document.getElementById('reviewForm').addEventListener('submit', (e)=>{
+  document.getElementById('openTerms').addEventListener('click', ()=>{
+    document.getElementById('termsOverlay').classList.add('show');
+  });
+  document.getElementById('f-consent').addEventListener('change', (e)=>{
+    document.getElementById('submitReviewBtn').disabled = !e.target.checked;
+  });
+  document.getElementById('reviewForm').addEventListener('submit', async (e)=>{
     e.preventDefault();
-    const scores = {};
-    CATS.forEach(c=>{ scores[c.key] = Number(document.getElementById(`f-${c.key}`).value); });
+    if(!document.getElementById('f-consent').checked) return;
     const text = document.getElementById('f-text').value.trim();
-    if(!text){ return; }
-    if(!userData.extraReviews[id]) userData.extraReviews[id] = [];
-    userData.extraReviews[id].push({scores, text, when:'just now'});
-    saveUserData(userData);
-    render();
+    if(!text) return;
+    const body = {
+      bossId: Number(id),
+      commScore: Number(document.getElementById('f-comm').value),
+      fairScore: Number(document.getElementById('f-fair').value),
+      growthScore: Number(document.getElementById('f-growth').value),
+      balanceScore: Number(document.getElementById('f-balance').value),
+      text
+    };
+    const res = await fetch(`${API_BASE}/reviews`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${authToken}`},
+      body: JSON.stringify(body)
+    });
+    if(!res.ok){
+      const d = await res.json();
+      alert(d.error || 'Could not post review');
+      return;
+    }
+    loadBosses(document.getElementById('search').value);
     openPanel(id);
   });
 
@@ -394,7 +398,10 @@ function closePanel(){
 document.getElementById('overlay').addEventListener('click', (e)=>{
   if(e.target.id === 'overlay') closePanel();
 });
-document.getElementById('search').addEventListener('input', render);
+document.getElementById('search').addEventListener('input', (e)=> loadBosses(e.target.value));
+document.getElementById('termsClose').addEventListener('click', ()=>{
+  document.getElementById('termsOverlay').classList.remove('show');
+});
 
 let authMode = 'login';
 const authBtn = document.getElementById('authBtn');
@@ -452,20 +459,29 @@ document.getElementById('authForm').addEventListener('submit', async (e)=>{
 });
 updateAuthBtn();
 
-document.getElementById('nb-add').addEventListener('click', ()=>{
+document.getElementById('nb-add').addEventListener('click', async ()=>{
+  if(!authToken){
+    document.getElementById('authOverlay').classList.add('show');
+    return;
+  }
   const name = document.getElementById('nb-name').value.trim();
   const company = document.getElementById('nb-company').value.trim();
   if(!name || !company) return;
-  const id = 'u' + Date.now();
-  userData.newBosses.push({id, name, title:'', company, reviews:[]});
-  saveUserData(userData);
+  const res = await fetch(`${API_BASE}/profiles`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${authToken}`},
+    body: JSON.stringify({ name, company })
+  });
+  if(!res.ok){
+    const d = await res.json();
+    alert(d.error || 'Could not add manager');
+    return;
+  }
   document.getElementById('nb-name').value='';
   document.getElementById('nb-company').value='';
-  render();
-  openPanel(id);
+  loadBosses('');
 });
 
-// theme toggle
 const themeBtn = document.getElementById('themeBtn');
 function applyTheme(t){
   if(t){ document.documentElement.setAttribute('data-theme', t); }
@@ -479,7 +495,7 @@ themeBtn.addEventListener('click', ()=>{
 });
 applyTheme(null);
 
-render();
+loadBosses('');
 </script>
 </body>
 </html>
